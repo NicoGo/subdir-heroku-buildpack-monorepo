@@ -66,5 +66,8 @@ cp -R "$TMP_DIR_FRONT/$FRONT_PATH" "$BUILD_DIR/"
 echo "       Cleaning temporary directories"
 rm -rf "$TMP_DIR_BACK" "$TMP_DIR_FRONT"
 
+echo "       Final build directory contents:"
+ls -al "$BUILD_DIR"
+
 echo "       Custom compile script completed successfully."
 exit 0
