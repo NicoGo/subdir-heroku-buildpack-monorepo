@@ -1,19 +1,25 @@
 #!/usr/bin/env bash
 # bin/compile <build-dir> <cache-dir> <env-dir>
+#
+# This script promotes the back-end folder’s contents (e.g. pom.xml, src/, etc.)
+# to the root of the build directory and copies the entire front-end folder into it.
+#
+# Expected environment variables (stored as files in ENV_DIR):
+#   PROJECT_PATH_BACK  - relative path to your back-end folder (e.g., "back-end")
+#   PROJECT_PATH_FRONT - relative path to your front-end folder (e.g., "front-end")
+#
+# After execution, BUILD_DIR will contain:
+#   - All files from back-end at the root (pom.xml, src/, etc.)
+#   - A subdirectory named front-end with all front-end files
 
-# This custom compile script takes two project paths:
-#   - PROJECT_PATH_BACK: Path to the back-end (Spring Boot) code.
-#   - PROJECT_PATH_FRONT: Path to the front-end (React) code.
-
-# Ensure wildcards match dotfiles.
+# Enable matching of dotfiles.
 shopt -s dotglob
 
-# Get directories from arguments.
 BUILD_DIR=${1:-}
 CACHE_DIR=${2:-}
 ENV_DIR=${3:-}
 
-# Read environment variables for project paths.
+# Read project paths from environment files.
 if [ -f "$ENV_DIR/PROJECT_PATH_BACK" ]; then
   BACK_PATH=$(cat "$ENV_DIR/PROJECT_PATH_BACK")
 else
@@ -28,34 +34,33 @@ else
   exit 1
 fi
 
-echo "-----> Custom Buildpack: Promoting back-end from '$BACK_PATH' and preserving front-end from '$FRONT_PATH'"
+echo "-----> Custom Buildpack: Promoting back-end from '$BACK_PATH' and preserving front-end folder '$FRONT_PATH'"
 
 # Create the cache directory if it doesn't exist.
 mkdir -p "$CACHE_DIR"
 
-# Preserve the back-end folder.
-TMP_DIR_BACK=$(mktemp -d "$CACHE_DIR/back_subdirXXXXX")
+# Preserve the back-end contents in a temporary directory.
+TMP_DIR_BACK=$(mktemp -d "$CACHE_DIR/back_tempXXXXX")
 echo "       Created temporary directory for back-end: $TMP_DIR_BACK"
 cp -R "$BUILD_DIR/$BACK_PATH/." "$TMP_DIR_BACK/"
 
-# Preserve the front-end folder.
-TMP_DIR_FRONT=$(mktemp -d "$CACHE_DIR/front_subdirXXXXX")
+# Preserve the front-end folder in a temporary directory.
+TMP_DIR_FRONT=$(mktemp -d "$CACHE_DIR/front_tempXXXXX")
 echo "       Created temporary directory for front-end: $TMP_DIR_FRONT"
-cp -R "$BUILD_DIR/$FRONT_PATH/." "$TMP_DIR_FRONT/"
+cp -R "$BUILD_DIR/$FRONT_PATH" "$TMP_DIR_FRONT/"
 
 # Clean the build directory completely.
 echo "       Cleaning build directory: $BUILD_DIR"
 rm -rf "$BUILD_DIR"/*
 
-# Promote the back-end by copying its files into the build directory.
-echo "       Copying back-end from temporary directory to build directory"
+# Promote the back-end by copying its contents to the build directory root.
+echo "       Promoting back-end contents to build directory root"
 cp -R "$TMP_DIR_BACK/." "$BUILD_DIR/"
 
-# Create a static directory (if not already present) for front-end assets.
-STATIC_DIR="$BUILD_DIR/static"
-mkdir -p "$STATIC_DIR"
-echo "       Copying front-end files into static directory: $STATIC_DIR"
-cp -R "$TMP_DIR_FRONT/." "$STATIC_DIR/"
+# Copy the entire front-end folder into the build directory.
+echo "       Copying front-end folder into build directory"
+# Assuming the folder name remains the same (e.g., "front-end")
+cp -R "$TMP_DIR_FRONT/$FRONT_PATH" "$BUILD_DIR/"
 
 # Clean up temporary directories.
 echo "       Cleaning temporary directories"
