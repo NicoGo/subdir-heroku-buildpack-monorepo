@@ -1,4 +1,4 @@
-Originally from
+Originally from https://github.com/timanovsky/subdir-heroku-buildpack
 
 Helps to build monorepo app (Spring/React in my case) by defining two env variables:
 
