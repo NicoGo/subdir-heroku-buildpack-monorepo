@@ -1,34 +1,65 @@
 #!/usr/bin/env bash
 # bin/compile <build-dir> <cache-dir> <env-dir>
 
-# Ensure wildcards in globs match dotfiles too.
+# This custom compile script takes two project paths:
+#   - PROJECT_PATH_BACK: Path to the back-end (Spring Boot) code.
+#   - PROJECT_PATH_FRONT: Path to the front-end (React) code.
+
+# Ensure wildcards match dotfiles.
 shopt -s dotglob
 
+# Get directories from arguments.
 BUILD_DIR=${1:-}
 CACHE_DIR=${2:-}
 ENV_DIR=${3:-}
 
-if [ -f $ENV_DIR/PROJECT_PATH ]; then
-	PROJECT_PATH=`cat $ENV_DIR/PROJECT_PATH`
-	if [ -d $BUILD_DIR/$PROJECT_PATH ]; then
-		echo "-----> Subdir buildpack in $PROJECT_PATH"
-		echo "       creating cache: $CACHE_DIR"
-		mkdir -p $CACHE_DIR
-		TMP_DIR=`mktemp -d $CACHE_DIR/subdirXXXXX`
-		echo "       created tmp dir: $TMP_DIR"
-		echo "       moving working dir: $PROJECT_PATH to $TMP_DIR"
-		cp -R $BUILD_DIR/$PROJECT_PATH/. $TMP_DIR/
-	 	echo "       cleaning build dir $BUILD_DIR"
-		rm -rf $BUILD_DIR/*
-		echo "       copying preserved work dir from cache $TMP_DIR to build dir $BUILD_DIR"
-		cp -R $TMP_DIR/. $BUILD_DIR/
-		echo "       cleaning tmp dir $TMP_DIR"
-		rm -rf $TMP_DIR
-		exit 0
-	fi
+# Read environment variables for project paths.
+if [ -f "$ENV_DIR/PROJECT_PATH_BACK" ]; then
+  BACK_PATH=$(cat "$ENV_DIR/PROJECT_PATH_BACK")
+else
+  echo "Error: PROJECT_PATH_BACK is undefined."
+  exit 1
 fi
 
-echo "PROJECT_PATH is undefined"
-exit 1
+if [ -f "$ENV_DIR/PROJECT_PATH_FRONT" ]; then
+  FRONT_PATH=$(cat "$ENV_DIR/PROJECT_PATH_FRONT")
+else
+  echo "Error: PROJECT_PATH_FRONT is undefined."
+  exit 1
+fi
 
+echo "-----> Custom Buildpack: Promoting back-end from '$BACK_PATH' and preserving front-end from '$FRONT_PATH'"
 
+# Create the cache directory if it doesn't exist.
+mkdir -p "$CACHE_DIR"
+
+# Preserve the back-end folder.
+TMP_DIR_BACK=$(mktemp -d "$CACHE_DIR/back_subdirXXXXX")
+echo "       Created temporary directory for back-end: $TMP_DIR_BACK"
+cp -R "$BUILD_DIR/$BACK_PATH/." "$TMP_DIR_BACK/"
+
+# Preserve the front-end folder.
+TMP_DIR_FRONT=$(mktemp -d "$CACHE_DIR/front_subdirXXXXX")
+echo "       Created temporary directory for front-end: $TMP_DIR_FRONT"
+cp -R "$BUILD_DIR/$FRONT_PATH/." "$TMP_DIR_FRONT/"
+
+# Clean the build directory completely.
+echo "       Cleaning build directory: $BUILD_DIR"
+rm -rf "$BUILD_DIR"/*
+
+# Promote the back-end by copying its files into the build directory.
+echo "       Copying back-end from temporary directory to build directory"
+cp -R "$TMP_DIR_BACK/." "$BUILD_DIR/"
+
+# Create a static directory (if not already present) for front-end assets.
+STATIC_DIR="$BUILD_DIR/static"
+mkdir -p "$STATIC_DIR"
+echo "       Copying front-end files into static directory: $STATIC_DIR"
+cp -R "$TMP_DIR_FRONT/." "$STATIC_DIR/"
+
+# Clean up temporary directories.
+echo "       Cleaning temporary directories"
+rm -rf "$TMP_DIR_BACK" "$TMP_DIR_FRONT"
+
+echo "       Custom compile script completed successfully."
+exit 0
